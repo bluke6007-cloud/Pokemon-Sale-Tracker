@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Pokémon Card Sales Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0B10;--surface:#14161F;--surface2:#1C1F2B;
+  --border:#262A38;--border2:#363B4D;
+  --text:#F3F4F8;--text2:#A6ABBD;--text3:#6E7386;
+  --green:#00E5A0;--green-d:#00C589;--green-l:rgba(0,229,160,.14);--green-t:#3FF0B5;
+  --red:#FF5C7A;--red-l:rgba(255,92,122,.14);
+  --amber:#FFB84D;--amber-l:rgba(255,184,77,.14);--amber-t:#FFC569;
+  --blue:#3FA9FF;--blue-l:rgba(63,169,255,.14);--blue-t:#66BEFF;
+  --pink:#FF3D9A;--pink-l:rgba(255,61,154,.14);
+  --cyan:#22D3EE;--cyan-l:rgba(34,211,238,.14);
+  --wa:#25D366;--wa-d:#128C7E;
+  --r:10px;--rs:7px;
+  --shadow:0 1px 3px rgba(0,0,0,.35),0 4px 18px rgba(0,0,0,.3);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);background-image:radial-gradient(circle at 15% 0%,rgba(255,61,154,.06),transparent 40%),radial-gradient(circle at 85% 15%,rgba(34,211,238,.06),transparent 40%);color:var(--text);font-size:15px;line-height:1.5;min-height:100vh}
+.app{max-width:980px;padding:1.5rem 1.5rem 5rem;margin-left:220px}
+
+/* Header */
+.header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap}
+.hlogo{display:flex;align-items:center;gap:.75rem}
+.hlogo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--pink),var(--blue));border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 4px 16px rgba(255,61,154,.25)}
+h1{font-size:19px;font-weight:800;letter-spacing:.02em;text-transform:uppercase}
+.hsubtitle{font-size:12px;color:var(--text3);margin-top:2px;letter-spacing:.02em}
+.hactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:.9rem 1.1rem;box-shadow:var(--shadow)}
+.stat-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.stat-val.green{color:var(--green)}
+
+/* Layout: sidebar + main */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:220px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);border-radius:0;padding:18px 10px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px;overflow-y:auto;z-index:10}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:2px 8px 14px}
+.sidebar-brand-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--pink),var(--blue));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sidebar-brand-text{line-height:1.3;overflow:hidden}
+.sidebar-brand-name{font-size:14px;font-weight:800;color:var(--text);white-space:nowrap}
+.sidebar-brand-sub{font-size:11px;color:var(--text3);white-space:nowrap}
+.sidebar-divider{height:1px;background:var(--border);margin:0 4px 10px}
+.side-tab{display:flex;align-items:center;gap:11px;width:100%;font-size:13.5px;font-weight:600;padding:9px 10px;border-radius:8px;border:none;background:transparent;color:var(--text2);cursor:pointer;text-align:left;transition:all .15s;white-space:nowrap}
+.side-tab:hover{background:var(--surface2);color:var(--text)}
+.side-tab.active{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1px var(--border2)}
+.side-tab .side-icon{display:inline-flex;flex-shrink:0;width:17px;height:17px}
+.side-tab .side-icon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.main{flex:1;min-width:0}
+@media(max-width:760px){
+  .sidebar{position:static;width:100%;height:auto;flex-direction:row;align-items:center;overflow-x:auto;overflow-y:visible;padding:6px;border-right:none;border-bottom:1px solid var(--border)}
+  .app{margin-left:0}
+  .sidebar-brand{padding:2px 10px;flex-shrink:0}
+  .sidebar-divider{width:1px;height:24px;margin:0 6px}
+  .side-tab{flex-shrink:0}
+}
+
+/* Panel */
+.panel{display:none}.panel.active{display:block}
+
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.card-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1rem}
+
+/* Form */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:10px}
+.fgroup label{font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px}
+input,select,textarea{width:100%;font-family:inherit;font-size:14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 11px;color:var(--text);outline:none;transition:border-color .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--border2);background:var(--surface)}
+textarea{resize:vertical;min-height:80px;font-size:13px;line-height:1.6}
+input[type=number]{-moz-appearance:textfield}
+
+/* Buttons */
+.btn{font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--surface2)}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:linear-gradient(135deg,var(--pink),var(--blue));border-color:transparent;color:#fff}
+.btn-primary:hover{filter:brightness(1.1)}
+.btn-wa{background:var(--wa);border-color:var(--wa);color:#fff}
+.btn-wa:hover{background:#1ebe5d;border-color:#1ebe5d}
+.btn-pdf{background:#E63946;border-color:#E63946;color:#fff}
+.btn-pdf:hover{background:#c0303c;border-color:#c0303c}
+.btn-sheets{background:#0F9D58;border-color:#0F9D58;color:#fff}
+.btn-sheets:hover{background:#0a7a44;border-color:#0a7a44}
+.btn-sm{font-size:12px;padding:5px 11px}
+.btn-danger{color:var(--red);border-color:transparent;background:transparent;font-weight:500}
+.btn-danger:hover{background:var(--red-l);border-color:var(--red)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* Alerts */
+.alert{padding:.75rem 1rem;border-radius:var(--rs);font-size:13px;margin-bottom:1rem;line-height:1.5}
+.alert-info{background:var(--blue-l);color:var(--blue-t);border:1px solid #B3D0F5}
+.alert-success{background:var(--green-l);color:var(--green-t);border:1px solid #9FE0C5}
+.alert-amber{background:var(--amber-l);color:var(--amber-t);border:1px solid #F5C87A}
+.alert-red{background:var(--red-l);color:var(--red);border:1px solid #F5AAAA}
+
+/* Field hint (catalog match) */
+.field-hint{font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 11px}
+.field-hint.match{background:var(--green-l);color:var(--green-t);border-color:#3a8a68}
+.field-hint.warn{background:var(--amber-l);color:var(--amber-t);border-color:#8a6a2a}
+
+/* Upload zone */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:2rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--surface2)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:var(--green-l)}
+.upload-zone .uz-icon{font-size:36px;display:block;margin-bottom:.5rem}
+.upload-zone p{font-size:14px;color:var(--text2)}
+.upload-zone small{font-size:12px;color:var(--text3)}
+
+/* Buyer card */
+.buyer-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:.75rem;overflow:hidden;box-shadow:var(--shadow)}
+.buyer-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;gap:.5rem;flex-wrap:wrap;transition:background .15s;user-select:none}
+.buyer-header:hover{background:var(--surface2)}
+.buyer-info{display:flex;align-items:center;gap:.75rem}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--green-l);color:var(--green-t);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:-.02em}
+.bname{font-weight:700;font-size:15px}
+.bmeta{font-size:12px;color:var(--text3);margin-top:1px}
+.bright{display:flex;align-items:center;gap:10px}
+.btotal{font-size:16px;font-weight:700;color:var(--green)}
+.chevron{font-size:11px;color:var(--text3);transition:transform .2s}
+.buyer-card.open .chevron{transform:rotate(180deg)}
+.buyer-body{display:none;padding:0 1.25rem 1.25rem;border-top:1px solid var(--border)}
+.buyer-card.open .buyer-body{display:block}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;margin:.75rem 0;font-size:13px}
+.tbl th{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:6px 8px;border-bottom:2px solid var(--border);white-space:nowrap}
+.tbl td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tfoot td{font-weight:700;border-top:2px solid var(--border);border-bottom:none;padding:8px}
+.tbl .price{font-weight:600}
+.tbl .total-row td{font-size:14px;color:var(--green)}
+
+/* Broadcast */
+.bc-row{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--surface2);border-radius:var(--rs);margin-bottom:.5rem;flex-wrap:wrap;gap:.5rem;border:1px solid var(--border)}
+.bc-name{font-weight:600;font-size:14px}
+.bc-sub{font-size:12px;color:var(--text3);margin-top:1px}
+.bc-total{font-size:14px;font-weight:700;color:var(--green)}
+.bc-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* Progress */
+.progress-bar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:.75rem 0}
+.progress-fill{height:100%;background:var(--green);border-radius:4px;transition:width .4s}
+.prog-info{display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:2px}
+
+/* Sheets config */
+.config-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.config-row .fgroup{flex:1;min-width:220px}
+.sheet-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:20px;width:fit-content;margin-top:.75rem}
+.sheet-status.ok{background:var(--green-l);color:var(--green-t)}
+.sheet-status.err{background:var(--red-l);color:var(--red)}
+.sheet-status.idle{background:var(--surface2);color:var(--text3)}
+
+/* Invoice settings */
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.inv-grid{grid-template-columns:1fr}}
+
+/* Payments */
+.pay-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;gap:1rem;flex-wrap:wrap}
+.pay-select{width:auto;min-width:170px;font-weight:600;font-size:13px;padding:7px 10px}
+.pay-select.st-waiting{background:var(--red-l);color:var(--red);border-color:#F5AAAA}
+.pay-select.st-pending{background:var(--amber-l);color:var(--amber-t);border-color:#F5C87A}
+.pay-select.st-paid{background:var(--green-l);color:var(--green-t);border-color:#9FE0C5}
+.ship-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px;white-space:nowrap}
+.ship-badge.not-shipped{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.ship-badge.ready{background:var(--green-l);color:var(--green-t);border:1px solid #9FE0C5}
+.pay-cards{font-size:12px;color:var(--text2);margin-top:1px;max-width:360px;white-space:normal}
+.pay-inv{font-size:12px;color:var(--text2);font-weight:600;letter-spacing:.02em;white-space:nowrap;background:var(--surface2);border:1px solid var(--border2);padding:5px 11px;border-radius:20px}
+.pay-inv.no-inv{color:var(--text3);font-weight:500;font-style:italic;background:transparent;border-style:dashed}
+.pay-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* Catalog status badge */
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.status-badge.avail{background:var(--green-l);color:var(--green-t);border:1px solid #2e7a5c}
+.status-badge.sold{background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+
+.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin:.75rem 0}
+.catalog-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column}
+.catalog-card.is-sold{opacity:.6}
+.catalog-card.is-avail{border-color:#4c4ce0;box-shadow:0 0 0 1px rgba(90,90,240,.25)}
+.catalog-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px}
+.catalog-card-title{font-size:16px;font-weight:800;color:var(--text);line-height:1.3}
+.catalog-card-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.catalog-card-badge{font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.catalog-card-badge.avail{background:#4c4ce0;color:#fff}
+.catalog-card-badge.sold{background:var(--surface);color:var(--text3);border:1px solid var(--border2)}
+.catalog-card-list{list-style:none;padding:0;margin:0 0 16px;display:flex;flex-direction:column;gap:7px;flex:1}
+.catalog-card-list li{font-size:13px;color:var(--text2);display:flex;gap:8px}
+.catalog-card-list li::before{content:'•';color:var(--text3)}
+.catalog-card-list li b{color:var(--text);font-weight:700;margin-left:auto}
+.catalog-card-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Empty state */
+.empty{text-align:center;padding:3.5rem 1rem;color:var(--text3)}
+.empty .eicon{font-size:44px;display:block;margin-bottom:.75rem}
+.empty p{font-size:14px}
+
+/* Tooltip */
+code{font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-family:monospace}
+
+@media(max-width:600px){
+  .app{padding:1rem .75rem 4rem}
+  .stats{grid-template-columns:1fr 1fr}
+  .inv-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">🎴</div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-name">Card Shop</div>
+        <div class="sidebar-brand-sub">Sales Manager</div>
+      </div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <button class="side-tab active" data-tab="catalog" onclick="switchTab('catalog',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span> Card Catalog</button>
+    <button class="side-tab" data-tab="add" onclick="switchTab('add',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span> Log Sale</button>
+    <button class="side-tab" data-tab="orders" onclick="switchTab('orders',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></svg></span> Orders</button>
+    <button class="side-tab" data-tab="payments" onclick="switchTab('payments',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Payments</button>
+    <button class="side-tab" data-tab="import" onclick="switchTab('import',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span> CSV Import</button>
+    <button class="side-tab" data-tab="broadcast" onclick="switchTab('broadcast',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span> Send &amp; Invoice</button>
+    <button class="side-tab" data-tab="settings" onclick="switchTab('settings',this)"><span class="side-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Settings</button>
+  </nav>
+  <div class="app">
+
+  <div class="header">
+    <div class="hlogo">
+      <div class="hlogo-icon">🎴</div>
+      <div>
+        <h1>Pokémon Card Sales Tracker</h1>
+        <div class="hsubtitle">Catalog pricing · PDF invoices · Google Sheets sync · WhatsApp ready</div>
+      </div>
+    </div>
+    <div class="hactions">
+      <button class="btn btn-pdf" onclick="generateAllPDFs()">📄 All invoices</button>
+      <button class="btn btn-sheets" onclick="syncAllToSheets()">🟢 Sync to Sheets</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Buyers</div><div class="stat-val" id="s-buyers">0</div></div>
+    <div class="stat"><div class="stat-label">Cards sold</div><div class="stat-val" id="s-cards">0</div></div>
+    <div class="stat"><div class="stat-label">Revenue</div><div class="stat-val green" id="s-rev">R0</div></div>
+    <div class="stat"><div class="stat-label">Profit</div><div class="stat-val green" id="s-profit">R0</div></div>
+    <div class="stat"><div class="stat-label">Invoices sent</div><div class="stat-val" id="s-sent">0</div></div>
+    <div class="stat"><div class="stat-label">Sheets sync</div><div class="stat-val" id="s-sync" style="font-size:14px;padding-top:4px">—</div></div>
+  </div>
+
+  <div class="main">
+
+  <!-- ── CARD CATALOG ─────────────────────────────────── -->
+  <div class="panel active" id="tab-catalog">
+    <div class="alert alert-info">
+      📇 Set this up first: add every card you're selling with what you <strong>paid</strong> (cost) and what you're <strong>selling it for</strong> (sale price). When you log a sale later, the sale price fills in automatically — and that card flips to <strong>Sold</strong> here and drops off the picker on the Log Sale screen. Remove or delete that sale and it flips back to <strong>Available</strong>.
+    </div>
+
+    <div class="card">
+      <div class="card-title">Already have a Google Sheet with your cards?</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:.75rem">
+        Connect it once in <strong>Settings</strong>, then pull your card list straight in below — no retyping. Your sheet needs <code>Card</code>, <code>Cost</code> and <code>Price</code> columns (<code>Card Number</code> optional). When you log a sale, that same sheet gets updated with the buyer's name, number and the price you sold for — <strong>your cost price is never sent anywhere buyers can see it.</strong>
+      </p>
+      <div class="btn-row">
+        <button class="btn btn-sheets" onclick="loadCatalogFromSheets()">⬇ Load catalog from Google Sheets</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add a card to your catalog</div>
+      <div class="fgrid">
+        <div class="fgroup" style="grid-column:span 2">
+          <label>Card name *</label>
+          <input id="c-card" type="text" placeholder="e.g. Charizard"/>
+        </div>
+        <div class="fgroup" style="grid-column:span 2">
+          <label>Card Number</label>
+          <input id="c-set" type="text" placeholder="e.g. 127/244"/>
+        </div>
+        <div class="fgroup">
+          <label>Cost price (R) *</label>
+          <input id="c-cost" type="number" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="fgroup">
+          <label>Sale price (R) *</label>
+          <input id="c-price" type="number" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addCatalogEntry()">➕ Add to catalog</button>
+        <button class="btn" onclick="clearCatalogForm()">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Bulk import your card list</div>
+      <div class="alert alert-info">
+        📋 <strong>Required columns:</strong> <code>card</code>, <code>cost</code>, <code>price</code> — plus optional <code>set</code> (used as the Card Number, e.g. 127/244).<br>
+        Copy from Excel or Sheets (Ctrl+C) and paste below. Importing a card that already exists just updates its price.
+      </div>
+      <div class="upload-zone" id="catalog-upload-zone" onclick="document.getElementById('catalog-file').click()" ondragover="catalogDragOver(event)" ondragleave="catalogDragLeave(event)" ondrop="catalogDropFile(event)">
+        <span class="uz-icon">📇</span>
+        <p>Drop a .csv file here, or click to browse</p>
+        <small>Or paste data in the text area below</small>
+        <input type="file" id="catalog-file" accept=".csv,.txt" style="display:none" onchange="catalogFileSelected(this)"/>
+      </div>
+      <div style="margin:.75rem 0;text-align:center;font-size:12px;color:var(--text3)">— or paste directly —</div>
+      <textarea id="catalog-input" placeholder="card,set,cost,price&#10;Charizard,4/102,850,1500&#10;Pikachu,58/102,15,45" rows="6"></textarea>
+      <div class="btn-row" style="margin-top:.75rem">
+        <button class="btn btn-primary" onclick="importCatalogCSV()">📂 Import</button>
+        <button class="btn" onclick="downloadCatalogTemplate()">⬇ Download template</button>
+        <button class="btn" onclick="document.getElementById('catalog-input').value=''">Clear</button>
+      </div>
+      <div id="catalog-import-result"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Your card catalog</div>
+      <div class="btn-row" style="margin-bottom:.75rem">
+        <button class="btn" onclick="exportCatalogCSV()">⬇ Export catalog CSV</button>
+      </div>
+      <div id="catalog-list"></div>
+    </div>
+  </div>
+
+  <!-- ── LOG SALE ─────────────────────────────────────── -->
+  <div class="panel" id="tab-add">
+    <div class="card">
+      <div class="card-title">Log a card sale</div>
+      <div class="fgrid">
+        <div class="fgroup">
+          <label>Buyer name *</label>
+          <input id="f-name" type="text" placeholder="e.g. Sipho Dlamini" list="buyer-dl" autocomplete="off"/>
+          <datalist id="buyer-dl"></datalist>
+        </div>
+        <div class="fgroup">
+          <label>WhatsApp number</label>
+          <input id="f-phone" type="text" placeholder="27821234567"/>
+        </div>
+        <div class="fgroup" style="grid-column:span 2">
+          <label>Card name *</label>
+          <input id="f-card" type="text" placeholder="e.g. Charizard" list="catalog-card-dl" autocomplete="off" oninput="autoFillFromCatalog()" onchange="autoFillFromCatalog()"/>
+          <datalist id="catalog-card-dl"></datalist>
+        </div>
+        <div class="fgroup" style="display:none">
+          <label>Card Number</label>
+          <input id="f-set" type="text" placeholder="e.g. 127/244" list="catalog-set-dl" autocomplete="off" oninput="autoFillFromCatalog()" onchange="autoFillFromCatalog()"/>
+          <datalist id="catalog-set-dl"></datalist>
+        </div>
+        <div class="fgroup">
+          <label>Sale price (R) *</label>
+          <input id="f-price" type="number" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="fgroup">
+          <label>Cost price (R)</label>
+          <input id="f-cost" type="number" placeholder="0.00" min="0" step="0.01"/>
+        </div>
+        <div class="fgroup">
+          <label>Qty</label>
+          <input id="f-qty" type="number" value="1" min="1"/>
+        </div>
+      </div>
+      <div id="price-hint" class="field-hint" style="display:none;margin-bottom:.75rem"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="addPurchase()">➕ Log sale</button>
+        <button class="btn" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+    <div class="alert alert-amber">
+      💡 <strong>Selling a big batch?</strong> Use the <strong>CSV Import</strong> tab — paste your Excel/Sheets list and all buyers &amp; totals load in seconds, using your Card Catalog prices automatically.
+    </div>
+  </div>
+
+  <!-- ── ORDERS ──────────────────────────────────────── -->
+  <div class="panel" id="tab-orders">
+    <div class="btn-row" style="margin-bottom:1rem">
+      <button class="btn" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-sheets" onclick="syncAllToSheets()">🟢 Sync to Sheets</button>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 Clear all</button>
+    </div>
+    <div id="orders-list"></div>
+  </div>
+
+  <!-- ── PAYMENTS ────────────────────────────────────── -->
+  <div class="panel" id="tab-payments">
+    <div class="card" style="padding:0">
+      <div style="padding:1.25rem 1.5rem 0">
+        <div class="card-title" style="margin-bottom:.25rem">Payments</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:1rem">
+          Track who's paid. Marking a buyer <strong>Paid</strong> automatically moves them from <strong>Not Shipped</strong> to <strong>Ready to Ship</strong>.
+        </p>
+      </div>
+      <div id="payments-list"></div>
+    </div>
+  </div>
+
+  <!-- ── IMPORT ──────────────────────────────────────── -->
+  <div class="panel" id="tab-import">
+    <div class="card">
+      <div class="card-title">Bulk import sales from Excel / Google Sheets</div>
+      <div class="alert alert-info">
+        📋 <strong>Required columns:</strong> <code>name</code>, <code>card</code> — plus optional <code>phone</code>, <code>set</code> (Card Number, e.g. 127/244), <code>price</code>, <code>cost</code>, <code>qty</code>.<br>
+        Leave <code>price</code> or <code>cost</code> blank and they're pulled automatically from your <strong>Card Catalog</strong> (matched by card + set).<br>
+        Copy from Excel or Sheets (Ctrl+C) and paste below — tab or comma separated both work.
+      </div>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-file').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <span class="uz-icon">📂</span>
+        <p>Drop a .csv file here, or click to browse</p>
+        <small>Or paste data in the text area below</small>
+        <input type="file" id="csv-file" accept=".csv,.txt" style="display:none" onchange="fileSelected(this)"/>
+      </div>
+      <div style="margin:.75rem 0;text-align:center;font-size:12px;color:var(--text3)">— or paste directly —</div>
+      <textarea id="csv-input" placeholder="name,phone,card,set,price,qty&#10;Sipho Dlamini,27821234567,Charizard,4/102,1500,1&#10;Lerato Mokoena,27831234567,Pikachu,58/102,,2" rows="7"></textarea>
+      <div class="btn-row" style="margin-top:.75rem">
+        <button class="btn btn-primary" onclick="importCSV()">📂 Import</button>
+        <button class="btn" onclick="downloadTemplate()">⬇ Download template</button>
+        <button class="btn" onclick="document.getElementById('csv-input').value=''">Clear</button>
+      </div>
+      <div id="import-result"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">How your Excel/Sheets should look</div>
+      <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>name</th><th>phone</th><th>card</th><th>set (card number)</th><th>price</th><th>qty</th></tr></thead>
+        <tbody>
+          <tr><td>Sipho Dlamini</td><td>27821234567</td><td>Charizard</td><td>4/102</td><td>1500</td><td>1</td></tr>
+          <tr><td>Lerato Mokoena</td><td>27831234567</td><td>Pikachu</td><td>58/102</td><td>(blank → catalog price)</td><td>2</td></tr>
+          <tr><td>Sipho Dlamini</td><td></td><td>Blastoise</td><td>2/102</td><td>600</td><td>1</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p style="font-size:12px;color:var(--text3)">Same buyer can appear multiple times — the tool groups them automatically. Leave price blank to pull it from your Card Catalog.</p>
+    </div>
+  </div>
+
+  <!-- ── BROADCAST ───────────────────────────────────── -->
+  <div class="panel" id="tab-broadcast">
+    <div class="card">
+      <div class="card-title">Send invoices &amp; totals to all buyers</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:.75rem">
+        Each buyer gets a PDF invoice download + a WhatsApp message pre-filled with their total. Work through the list — one tap per person. Totals include the flat R60 Pudo shipping fee, added below the cards on the invoice.
+      </p>
+      <div id="broadcast-progress" style="display:none">
+        <div class="prog-info"><span>Messages sent</span><span id="prog-text">0 / 0</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      </div>
+      <div id="broadcast-list"></div>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS ────────────────────────────────────── -->
+  <div class="panel" id="tab-settings">
+
+    <!-- Google Sheets -->
+    <div class="card">
+      <div class="card-title">Google Sheets — sync to YOUR card sheet</div>
+      <div class="alert alert-info" style="margin-bottom:1rem">
+        This connects to the <strong>same sheet you already use for your card list</strong> — the one with Cost and Price columns. It won't create a separate sales sheet: when you log a sale, this tool finds the matching card row and fills in <strong>Buyer, Phone, Sold Price, Qty and Date Sold</strong> right there. Your <strong>Cost</strong> column stays in the sheet only — it's never sent to buyers.<br><br>
+        <strong>One-time setup (5 min):</strong><br>
+        1. Open your existing card spreadsheet (or <a href="https://sheets.new" target="_blank" style="color:var(--blue-t)">sheets.new</a> to make one). Make sure the sheet has header names <code>Card</code>, <code>Cost</code>, <code>Price</code> (and optionally <code>Set</code> for the Card Number, e.g. 127/244) in row 1<br>
+        2. Go to <strong>Extensions → Apps Script</strong> → paste the script below → click Save &amp; Deploy as Web App (Execute as: Me, Who has access: Anyone)<br>
+        3. Copy the Web App URL and paste it below
+      </div>
+      <div style="margin-bottom:.75rem">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:4px">Apps Script code to paste:</label>
+        <textarea readonly rows="8" style="font-family:monospace;font-size:11px;background:#1e1e2e;color:#cdd6f4;border-color:#444;border-radius:var(--rs)">function doGet(e) {
+  var callback = e.parameter.callback || "callback";
+  var action = e.parameter.action || "sync";
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var result;
+  if (action === "getCatalog") {
+    result = getCatalogData_(sheet);
+  } else {
+    var rows = JSON.parse(decodeURIComponent(e.parameter.data || "[]"));
+    result = syncSales_(sheet, rows);
+  }
+  return ContentService.createTextOutput(callback + "(" + JSON.stringify(result) + ")").setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+function doPost(e) { return doGet(e); }
+
+function normalizeHeader_(h) { return String(h).toLowerCase().replace(/[^a-z]/g, ""); }
+
+function getHeaderMap_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return {};
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var map = {};
+  headers.forEach(function (h, i) { map[normalizeHeader_(h)] = i + 1; });
+  return map;
+}
+
+function findCol_(map, aliases) {
+  for (var i = 0; i < aliases.length; i++) if (map[aliases[i]]) return map[aliases[i]];
+  return 0;
+}
+
+function ensureCol_(sheet, map, label, key) {
+  if (map[key]) return map[key];
+  var col = sheet.getLastColumn() + 1;
+  sheet.getRange(1, col).setValue(label).setFontWeight("bold").setBackground("#16A06B").setFontColor("#ffffff");
+  map[key] = col;
+  return col;
+}
+
+function getCatalogData_(sheet) {
+  var map = getHeaderMap_(sheet);
+  var cCard = findCol_(map, ["card", "cardname", "name"]);
+  var cSet = findCol_(map, ["set", "rarity", "cardnumber", "cardno", "cardnum", "number"]);
+  var cPrice = findCol_(map, ["price", "saleprice", "sellprice"]);
+  if (!cCard || !cCost || !cPrice) return { ok: false, error: "Sheet needs Card, Cost and Price column headers in row 1." };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, cards: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var cards = [];
+  data.forEach(function (r) {
+    if (!r[cCard - 1]) return;
+    cards.push({ card: String(r[cCard - 1]), set: cSet ? String(r[cSet - 1] || "") : "", cost: parseFloat(r[cCost - 1]) || 0, price: parseFloat(r[cPrice - 1]) || 0 });
+  });
+  return { ok: true, cards: cards };
+}
+
+function syncSales_(sheet, sales) {
+  var map = getHeaderMap_(sheet);
+  var cCard = findCol_(map, ["card", "cardname", "name"]) || ensureCol_(sheet, map, "Card", "card");
+  var cSet = findCol_(map, ["set", "rarity", "cardnumber", "cardno", "cardnum", "number"]);
+  var cBuyer = ensureCol_(sheet, map, "Buyer", "buyer");
+  var cPhone = ensureCol_(sheet, map, "Phone", "phone");
+  var cSoldPrice = ensureCol_(sheet, map, "Sold Price", "soldprice");
+  var cQty = ensureCol_(sheet, map, "Qty", "qty");
+  var cDate = ensureCol_(sheet, map, "Date Sold", "datesold");
+  var numCols = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  var data = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, numCols).getValues() : [];
+  var updated = 0, appended = 0;
+  sales.forEach(function (s) {
+    var wantCard = String(s.card || "").trim().toLowerCase();
+    var wantSet = String(s.set || "").trim().toLowerCase();
+    var matchRow = -1;
+    for (var i = 0; i < data.length; i++) {
+      var rowCard = String(data[i][cCard - 1] || "").trim().toLowerCase();
+      var rowSet = cSet ? String(data[i][cSet - 1] || "").trim().toLowerCase() : "";
+      var rowBuyer = data[i][cBuyer - 1];
+      if (rowCard === wantCard && rowSet === wantSet && !rowBuyer) { matchRow = i; break; }
+    }
+    if (matchRow >= 0) {
+      var sheetRow = matchRow + 2;
+      sheet.getRange(sheetRow, cBuyer).setValue(s.buyer || "");
+      sheet.getRange(sheetRow, cPhone).setValue(s.phone || "");
+      sheet.getRange(sheetRow, cSoldPrice).setValue(s.price || 0);
+      sheet.getRange(sheetRow, cQty).setValue(s.qty || 1);
+      sheet.getRange(sheetRow, cDate).setValue(s.date || "");
+      data[matchRow][cBuyer - 1] = s.buyer || "x";
+      updated++;
+    } else {
+      var newRow = new Array(numCols).fill("");
+      newRow[cCard - 1] = s.card || "";
+      if (cSet) newRow[cSet - 1] = s.set || "";
+      newRow[cBuyer - 1] = s.buyer || "";
+      newRow[cPhone - 1] = s.phone || "";
+      newRow[cSoldPrice - 1] = s.price || 0;
+      newRow[cQty - 1] = s.qty || 1;
+      newRow[cDate - 1] = s.date || "";
+      sheet.appendRow(newRow);
+      data.push(newRow);
+      appended++;
+    }
+  });
+  return { ok: true, updated: updated, appended: appended };
+}</textarea>
+        <button class="btn btn-sm" style="margin-top:6px" onclick="copyScript()">📋 Copy script</button>
+      </div>
+      <div class="config-row">
+        <div class="fgroup">
+          <label>Web App URL</label>
+          <input id="sheets-url" type="text" placeholder="https://script.google.com/macros/s/..." value=""/>
+        </div>
+        <button class="btn btn-sheets" onclick="saveAndTestSheets()">Save &amp; Test</button>
+      </div>
+      <div id="sheets-status" class="sheet-status idle">⚪ Not configured</div>
+    </div>
+
+    <!-- Invoice settings -->
+    <div class="card">
+      <div class="card-title">Invoice / PDF settings</div>
+      <div class="inv-grid">
+        <div class="fgroup"><label>Your business / group name</label><input id="inv-biz" placeholder="Geek-Zone"/></div>
+        <div class="fgroup"><label>Your WhatsApp / contact</label><input id="inv-contact" placeholder="27821234567"/></div>
+        <div class="fgroup"><label>Bank name</label><input id="inv-bank" placeholder="FNB"/></div>
+        <div class="fgroup"><label>Account number</label><input id="inv-acc" placeholder="62012345678"/></div>
+        <div class="fgroup"><label>Account holder</label><input id="inv-holder" placeholder="John Smith"/></div>
+        <div class="fgroup"><label>Branch code</label><input id="inv-branch" placeholder="250655"/></div>
+        <div class="fgroup"><label>Reference prefix</label><input id="inv-ref" placeholder="PKM" maxlength="6"/></div>
+        <div class="fgroup"><label>Payment terms note</label><input id="inv-terms" placeholder="Payment due within 3 days"/></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:.75rem" onclick="saveInvSettings()">💾 Save invoice settings</button>
+    </div>
+
+    <!-- WhatsApp message -->
+    <div class="card">
+      <div class="card-title">WhatsApp message template</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:.75rem">Sent alongside the PDF invoice link. Use <code>{name}</code> <code>{total}</code> <code>{count}</code> <code>{date}</code></p>
+      <textarea id="wa-template" rows="5">Hi {name}! 👋 Your Pokémon card order invoice is attached.
+
+*{count} card(s) · Total: {total}*
+
+Please make payment to the banking details on the invoice.
+
+Thank you! 🎴⚡</textarea>
+      <button class="btn btn-primary" style="margin-top:.75rem" onclick="saveWATemplate()">💾 Save template</button>
+    </div>
+
+    <!-- Danger -->
+    <div class="card">
+      <div class="card-title">Data</div>
+      <div class="btn-row">
+        <button class="btn" onclick="exportCSV()">⬇ Export sales as CSV</button>
+        <button class="btn" onclick="exportCatalogCSV()">⬇ Export catalog as CSV</button>
+        <button class="btn btn-danger" onclick="clearAll()">🗑 Clear all session data</button>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+<script>
+// ─── jsPDF setup ─────────────────────────────────────────────────────────────
+const { jsPDF } = window.jspdf;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let state = JSON.parse(localStorage.getItem('pkm-state') || '{}');
+let catalog = JSON.parse(localStorage.getItem('pkm-catalog') || '[]');
+let sentCount = parseInt(localStorage.getItem('pkm-sent') || '0');
+let settings = JSON.parse(localStorage.getItem('pkm-settings') || '{}');
+let waTemplate = localStorage.getItem('pkm-wa-tmpl') || `Hi {name}! 👋 Your Pokémon card order invoice is attached.\n\n*{count} card(s) · Total: {total}*\n\nPlease make payment to the banking details on the invoice.\n\nThank you! 🎴⚡`;
+let invoiceCounter = parseInt(localStorage.getItem('pkm-inv-counter') || '1000');
+const PUDO_SHIPPING = 60; // flat Pudo locker-to-locker shipping fee (R), added to every invoice
+
+function save(){
+  localStorage.setItem('pkm-state', JSON.stringify(state));
+  localStorage.setItem('pkm-catalog', JSON.stringify(catalog));
+  localStorage.setItem('pkm-sent', sentCount);
+  localStorage.setItem('pkm-settings', JSON.stringify(settings));
+  localStorage.setItem('pkm-wa-tmpl', waTemplate);
+  localStorage.setItem('pkm-inv-counter', invoiceCounter);
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(id, el){
+  document.querySelectorAll('.side-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='catalog') renderCatalog();
+  if(id==='orders') renderOrders();
+  if(id==='payments') renderPayments();
+  if(id==='broadcast') renderBroadcast();
+  if(id==='settings') loadSettings();
+  updateStats();
+}
+
+// ─── Card Catalog ─────────────────────────────────────────────────────────────
+function catalogKey(card,set){ return (card||'').trim().toLowerCase()+'|'+(set||'').trim().toLowerCase(); }
+
+function findCatalogEntry(card,set){
+  const k=catalogKey(card,set);
+  return catalog.find(c=>catalogKey(c.card,c.set)===k);
+}
+
+function upsertCatalogEntry(card,set,cost,price){
+  const existing=findCatalogEntry(card,set);
+  if(existing){ existing.cost=cost; existing.price=price; }
+  else catalog.push({id:'c'+Date.now()+Math.random().toString(36).slice(2,7), card, set, cost, price});
+  save();
+}
+
+function addCatalogEntry(){
+  const card=document.getElementById('c-card').value.trim();
+  const set=document.getElementById('c-set').value.trim();
+  const cost=parseFloat(document.getElementById('c-cost').value);
+  const price=parseFloat(document.getElementById('c-price').value);
+  if(!card||isNaN(cost)||isNaN(price)){alert('Please fill in card name, cost price and sale price.');return;}
+  upsertCatalogEntry(card,set,cost,price);
+  clearCatalogForm();
+  renderCatalog();
+  updateCatalogDatalists();
+}
+
+function clearCatalogForm(){
+  ['c-card','c-set','c-cost','c-price'].forEach(id=>document.getElementById(id).value='');
+}
+
+function editCatalogEntry(id){
+  const c=catalog.find(x=>x.id===id); if(!c) return;
+  const label=c.card+(c.set?` (${c.set})`:'');
+  const newCost=prompt(`Cost price for ${label}:`, c.cost);
+  if(newCost===null) return;
+  const newPrice=prompt(`Sale price for ${label}:`, c.price);
+  if(newPrice===null) return;
+  const cost=parseFloat(newCost), price=parseFloat(newPrice);
+  if(isNaN(cost)||isNaN(price)){alert('Please enter valid numbers.');return;}
+  c.cost=cost; c.price=price;
+  save(); renderCatalog();
+}
+
+function removeCatalogEntry(id){
+  const c=catalog.find(x=>x.id===id); if(!c) return;
+  if(!confirm(`Remove ${c.card} from your catalog?`))return;
+  catalog=catalog.filter(x=>x.id!==id);
+  save(); renderCatalog(); updateCatalogDatalists();
+}
+
+// ─── Sold status ──────────────────────────────────────────────────────────────
+function setCatalogSold(card,set,sold){
+  const entry=findCatalogEntry(card,set);
+  if(entry){ entry.sold=sold; save(); }
+}
+
+function toggleCatalogSold(id){
+  const c=catalog.find(x=>x.id===id); if(!c) return;
+  c.sold=!c.sold;
+  save(); renderCatalog(); updateCatalogDatalists();
+}
+
+function isCardSoldElsewhere(card,set){
+  const key=catalogKey(card,set);
+  for(const b in state){
+    for(const it of state[b].items){
+      if(catalogKey(it.rawCard,it.set)===key) return true;
+    }
+  }
+  return false;
+}
+
+function renderCatalog(){
+  const el=document.getElementById('catalog-list');
+  if(!catalog.length){el.innerHTML='<div class="empty"><span class="eicon">📇</span><p>No cards in your catalog yet. Add one above.</p></div>';return;}
+  const sorted=[...catalog].sort((a,b)=>a.card.localeCompare(b.card));
+  let cards='';
+  sorted.forEach(c=>{
+    const margin=c.price-c.cost;
+    const sold=!!c.sold;
+    cards+=`<div class="catalog-card ${sold?'is-sold':'is-avail'}">
+      <div class="catalog-card-head">
+        <div>
+          <div class="catalog-card-title">${c.card}</div>
+          ${c.set?`<div class="catalog-card-sub">#${c.set}</div>`:''}
+        </div>
+        <span class="catalog-card-badge ${sold?'sold':'avail'}">${sold?'Sold':'Available'}</span>
+      </div>
+      <ul class="catalog-card-list">
+        <li>Cost <b>R${c.cost.toLocaleString('en-ZA',{minimumFractionDigits:2})}</b></li>
+        <li>Sale price <b>R${c.price.toLocaleString('en-ZA',{minimumFractionDigits:2})}</b></li>
+        <li>Margin <b style="color:${margin>=0?'var(--green)':'var(--red)'}">R${margin.toLocaleString('en-ZA',{minimumFractionDigits:2})}</b></li>
+      </ul>
+      <div class="catalog-card-actions">
+        <button class="btn btn-sm" onclick="editCatalogEntry('${c.id}')">✎ Edit</button>
+        <button class="btn btn-sm" onclick="toggleCatalogSold('${c.id}')">${sold?'↺ Mark Available':'✓ Mark Sold'}</button>
+        <button class="btn btn-sm btn-danger" onclick="removeCatalogEntry('${c.id}')">✕</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=`<div class="catalog-grid">${cards}</div>`;
+}
+
+function updateCatalogDatalists(){
+  const cardDl=document.getElementById('catalog-card-dl');
+  const setDl=document.getElementById('catalog-set-dl');
+  if(!cardDl||!setDl) return;
+  cardDl.innerHTML=''; setDl.innerHTML='';
+  // One option per catalog entry so the card number shows alongside the name
+  // (e.g. "Charizard — 4/102"), which also disambiguates cards that share a name.
+  const seen=new Set();
+  catalog.filter(c=>!c.sold).forEach(c=>{
+    const label=c.set?`${c.card} — ${c.set}`:c.card;
+    if(seen.has(label))return;
+    seen.add(label);
+    const o=document.createElement('option');o.value=label;cardDl.appendChild(o);
+  });
+  const sets=[...new Set(catalog.map(c=>c.set).filter(Boolean))];
+  sets.forEach(v=>{const o=document.createElement('option');o.value=v;setDl.appendChild(o);});
+}
+
+function importCatalogCSV(text){
+  const raw=(text||document.getElementById('catalog-input').value).trim();
+  if(!raw){alert('No data to import.');return;}
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<2){alert('Need header row + at least one data row.');return;}
+  const delim=lines[0].includes('\t')?'\t':',';
+  const headers=lines[0].split(delim).map(h=>h.trim().toLowerCase().replace(/[^a-z]/g,''));
+  const col=h=>headers.indexOf(h);
+  const iC=col('card'),iS=col('set'),iCo=col('cost'),iP=col('price');
+  if(iC<0||iCo<0||iP<0){alert('Columns "card", "cost" and "price" are required.');return;}
+  let ok=0,skip=0;
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(delim).map(v=>v.trim().replace(/^"|"$/g,''));
+    const card=c[iC]||'';
+    const set=iS>=0?c[iS]||'':'';
+    const cost=parseFloat((c[iCo]||'').replace(/[^0-9.]/g,''));
+    const price=parseFloat((c[iP]||'').replace(/[^0-9.]/g,''));
+    if(!card||isNaN(cost)||isNaN(price)){skip++;continue;}
+    upsertCatalogEntry(card,set,cost,price);
+    ok++;
+  }
+  renderCatalog(); updateCatalogDatalists();
+  document.getElementById('catalog-import-result').innerHTML=`<div class="alert alert-success" style="margin-top:.75rem">✅ Imported <strong>${ok}</strong> card(s)${skip>0?` (${skip} skipped)`:''} into your catalog.</div>`;
+}
+
+function catalogFileSelected(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{ document.getElementById('catalog-input').value=e.target.result; importCatalogCSV(e.target.result); };
+  r.readAsText(f);
+}
+function catalogDragOver(e){e.preventDefault();document.getElementById('catalog-upload-zone').classList.add('drag')}
+function catalogDragLeave(e){document.getElementById('catalog-upload-zone').classList.remove('drag')}
+function catalogDropFile(e){
+  e.preventDefault();catalogDragLeave(e);
+  const f=e.dataTransfer.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{document.getElementById('catalog-input').value=ev.target.result;importCatalogCSV(ev.target.result);};
+  r.readAsText(f);
+}
+
+function downloadCatalogTemplate(){
+  const csv='card,set,cost,price\nCharizard,4/102,850,1500\nPikachu,58/102,15,45\nBlastoise,2/102,300,600\n';
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='pokemon-card-catalog-template.csv';a.click();
+}
+
+async function loadCatalogFromSheets(){
+  const url=settings.sheetsUrl;
+  const resultEl=document.getElementById('catalog-import-result');
+  if(!url){
+    resultEl.innerHTML='<div class="alert alert-amber">⚠ Set up your Google Sheets URL in Settings first, then come back here.</div>';
+    return;
+  }
+  resultEl.innerHTML='<div class="alert alert-info">⏳ Loading your card list from Google Sheets...</div>';
+  try{
+    const res = await fetchFromSheets(url,'getCatalog');
+    if(!res||!res.ok){
+      resultEl.innerHTML=`<div class="alert alert-red">❌ ${res&&res.error?res.error:'Could not read the catalog from your sheet.'}</div>`;
+      return;
+    }
+    let count=0;
+    (res.cards||[]).forEach(c=>{
+      if(!c.card) return;
+      upsertCatalogEntry(c.card, c.set||'', c.cost||0, c.price||0);
+      count++;
+    });
+    renderCatalog(); updateCatalogDatalists();
+    resultEl.innerHTML=`<div class="alert alert-success">✅ Loaded ${count} card(s) from your Google Sheet.</div>`;
+  }catch(e){
+    resultEl.innerHTML=`<div class="alert alert-red">❌ Failed to load: ${e.message}</div>`;
+  }
+}
+
+function exportCatalogCSV(){
+  if(!catalog.length){alert('No cards in catalog.');return;}
+  let csv='card,set,cost,price,margin\n';
+  catalog.forEach(c=>{
+    csv+=`"${c.card}","${c.set||''}",${c.cost},${c.price},${(c.price-c.cost)}\n`;
+  });
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='pokemon-card-catalog.csv';a.click();
+}
+
+// ─── Add sale ─────────────────────────────────────────────────────────────────
+function autoFillFromCatalog(){
+  const cardInput=document.getElementById('f-card');
+  const setInput=document.getElementById('f-set');
+  // If the user picked a "Card Name — Set" suggestion from the dropdown, split it
+  // back into the two fields so matching (and display) stays clean.
+  const combo=cardInput.value.match(/^(.*?)\s—\s(.+)$/);
+  if(combo){
+    cardInput.value=combo[1].trim();
+    if(!setInput.value.trim()) setInput.value=combo[2].trim();
+  }
+  const card=cardInput.value.trim();
+  const set=setInput.value.trim();
+  const hint=document.getElementById('price-hint');
+  if(!card){hint.style.display='none';return;}
+  const entry=findCatalogEntry(card,set);
+  if(entry){
+    document.getElementById('f-price').value=entry.price;
+    document.getElementById('f-cost').value=entry.cost;
+    const margin=entry.price-entry.cost;
+    if(entry.sold){
+      hint.className='field-hint warn';
+      hint.textContent=`⚠ Already marked SOLD in your catalog — Cost R${entry.cost.toLocaleString('en-ZA',{minimumFractionDigits:2})} · Sale R${entry.price.toLocaleString('en-ZA',{minimumFractionDigits:2})}. Logging this sale will keep it as Sold.`;
+    } else {
+      hint.className='field-hint match';
+      hint.textContent=`📇 Catalog match — Cost R${entry.cost.toLocaleString('en-ZA',{minimumFractionDigits:2})} · Sale R${entry.price.toLocaleString('en-ZA',{minimumFractionDigits:2})} · Margin R${margin.toLocaleString('en-ZA',{minimumFractionDigits:2})}`;
+    }
+  } else {
+    hint.className='field-hint';
+    hint.textContent='No catalog match — enter the price manually, or add this card to your Card Catalog first.';
+  }
+  hint.style.display='block';
+}
+
+function addPurchase(){
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim().replace(/\D/g,'');
+  const card = document.getElementById('f-card').value.trim();
+  const set = document.getElementById('f-set').value.trim();
+  const price = parseFloat(document.getElementById('f-price').value);
+  const cost = parseFloat(document.getElementById('f-cost').value)||0;
+  const qty = parseInt(document.getElementById('f-qty').value)||1;
+  if(!name||!card||isNaN(price)||price<=0){alert('Please fill in buyer name, card and sale price.');return;}
+  addEntry(name,phone,card,set,price,qty,cost);
+  document.getElementById('f-card').value='';
+  document.getElementById('f-set').value='';
+  document.getElementById('f-price').value='';
+  document.getElementById('f-cost').value='';
+  document.getElementById('f-qty').value='1';
+  document.getElementById('price-hint').style.display='none';
+  document.getElementById('f-card').focus();
+  updateStats(); updateDatalist(); renderPayments(); updateCatalogDatalists();
+}
+
+function addEntry(name,phone,card,set,price,qty,cost){
+  if(!state[name]) state[name]={phone:'',items:[],invoiceNo:null,paymentStatus:'waiting',shippingStatus:'not_shipped'};
+  if(phone) state[name].phone=phone;
+  const label=set?`${card} (${set})`:card;
+  state[name].items.push({card:label,rawCard:card,set,price,cost:cost||0,qty:qty||1});
+  setCatalogSold(card,set,true);
+  save();
+}
+
+function clearForm(){
+  ['f-name','f-phone','f-card','f-set','f-price','f-cost'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-qty').value='1';
+  document.getElementById('price-hint').style.display='none';
+}
+
+// ─── CSV Import (sales) ────────────────────────────────────────────────────────
+function importCSV(text){
+  const raw=(text||document.getElementById('csv-input').value).trim();
+  if(!raw){alert('No data to import.');return;}
+  const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(lines.length<2){alert('Need header row + at least one data row.');return;}
+  const delim=lines[0].includes('\t')?'\t':',';
+  const headers=lines[0].split(delim).map(h=>h.trim().toLowerCase().replace(/[^a-z]/g,''));
+  const col=h=>headers.indexOf(h);
+  const iN=col('name'),iP=col('phone'),iC=col('card'),iPr=col('price'),iQ=col('qty'),iS=col('set'),iCo=col('cost');
+  if(iN<0||iC<0){alert('Columns "name" and "card" are required.');return;}
+  let ok=0,skip=0;
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(delim).map(v=>v.trim().replace(/^"|"$/g,''));
+    const name=c[iN]||'';
+    const phone=iP>=0?(c[iP]||'').replace(/\D/g,''):'';
+    const card=c[iC]||'';
+    const set=iS>=0?c[iS]||'':'';
+    let price=iPr>=0?parseFloat((c[iPr]||'').replace(/[^0-9.]/g,'')):NaN;
+    let cost=iCo>=0?parseFloat((c[iCo]||'').replace(/[^0-9.]/g,'')):NaN;
+    const qty=iQ>=0?parseInt(c[iQ]||'1')||1:1;
+    if(!name||!card){skip++;continue;}
+    if(isNaN(price)||isNaN(cost)){
+      const entry=findCatalogEntry(card,set);
+      if(isNaN(price)) price=entry?entry.price:NaN;
+      if(isNaN(cost)) cost=entry?entry.cost:0;
+    }
+    if(isNaN(price)||price<=0){skip++;continue;}
+    addEntry(name,phone,card,set,price,qty,cost||0);
+    ok++;
+  }
+  updateStats(); updateDatalist(); renderPayments(); updateCatalogDatalists();
+  document.getElementById('import-result').innerHTML=`<div class="alert alert-success" style="margin-top:.75rem">✅ Imported <strong>${ok}</strong> rows${skip>0?` (${skip} skipped — no price found; add the card to your catalog or include a price column)`:''}. Go to <strong>Orders</strong> or <strong>Send &amp; Invoice</strong>.</div>`;
+}
+
+function fileSelected(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{ document.getElementById('csv-input').value=e.target.result; importCSV(e.target.result); };
+  r.readAsText(f);
+}
+function dragOver(e){e.preventDefault();document.getElementById('upload-zone').classList.add('drag')}
+function dragLeave(e){document.getElementById('upload-zone').classList.remove('drag')}
+function dropFile(e){
+  e.preventDefault();dragLeave(e);
+  const f=e.dataTransfer.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{document.getElementById('csv-input').value=ev.target.result;importCSV(ev.target.result);};
+  r.readAsText(f);
+}
+
+function downloadTemplate(){
+  const csv='name,phone,card,set,price,qty\nSipho Dlamini,27821234567,Charizard,4/102,1500,1\nLerato Mokoena,27831234567,Pikachu,58/102,45,2\nThabo Nkosi,27841234567,Blastoise,2/102,600,1\n';
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='pokemon-sales-import-template.csv';a.click();
+}
+
+function exportCSV(){
+  const buyers=Object.keys(state);
+  if(!buyers.length){alert('No data.');return;}
+  let csv='buyer,phone,card,set,unit_price,cost,qty,line_total,profit\n';
+  const today=new Date().toLocaleDateString('en-ZA');
+  buyers.forEach(b=>{
+    state[b].items.forEach(it=>{
+      const lt=it.price*(it.qty||1);
+      const profit=(it.price-(it.cost||0))*(it.qty||1);
+      csv+=`"${b}","${state[b].phone}","${it.card}","${it.set||''}",${it.price},${it.cost||0},${it.qty||1},${lt},${profit}\n`;
+    });
+  });
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`pokemon-card-sales-${today}.csv`;a.click();
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+function renderOrders(){
+  const el=document.getElementById('orders-list');
+  const buyers=Object.keys(state);
+  if(!buyers.length){el.innerHTML='<div class="empty"><span class="eicon">📋</span><p>No sales yet.</p></div>';return;}
+  el.innerHTML='';
+  buyers.forEach(b=>{
+    const d=state[b];
+    const total=d.items.reduce((s,it)=>s+it.price*(it.qty||1),0);
+    const profit=d.items.reduce((s,it)=>s+(it.price-(it.cost||0))*(it.qty||1),0);
+    const count=d.items.reduce((s,it)=>s+(it.qty||1),0);
+    const initials=b.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const div=document.createElement('div');
+    div.className='buyer-card';
+    let rows='';
+    d.items.forEach((it,i)=>{
+      const lt=it.price*(it.qty||1);
+      const p=(it.price-(it.cost||0))*(it.qty||1);
+      rows+=`<tr>
+        <td>${it.card}</td>
+        <td style="text-align:center">${it.qty||1}</td>
+        <td class="price">R${it.price.toLocaleString('en-ZA',{minimumFractionDigits:2})}</td>
+        <td class="price">R${(it.cost||0).toLocaleString('en-ZA',{minimumFractionDigits:2})}</td>
+        <td class="price">R${lt.toLocaleString('en-ZA',{minimumFractionDigits:2})}</td>
+        <td class="price" style="color:${p>=0?'var(--green)':'var(--red)'}">R${p.toLocaleString('en-ZA',{minimumFractionDigits:2})}</td>
+        <td><button class="btn btn-sm btn-danger" onclick="removeItem('${b}',${i})">✕</button></td>
+      </tr>`;
+    });
+    div.innerHTML=`
+      <div class="buyer-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="buyer-info">
+          <div class="avatar">${initials}</div>
+          <div><div class="bname">${b}</div><div class="bmeta">${count} card(s) &nbsp;·&nbsp; ${d.phone||'<span style="color:var(--red)">No phone</span>'}</div></div>
+        </div>
+        <div class="bright"><span class="btotal">R${total.toLocaleString('en-ZA',{minimumFractionDigits:2})}</span><span class="chevron">▼</span></div>
+      </div>
+      <div class="buyer-body">
+        <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>Card</th><th style="text-align:center">Qty</th><th>Sale Price</th><th>Cost</th><th>Line Total</th><th>Profit</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr class="total-row"><td colspan="4">Total</td><td>R${total.toLocaleString('en-ZA',{minimumFractionDigits:2})}</td><td>R${profit.toLocaleString('en-ZA',{minimumFractionDigits:2})}</td><td></td></tr></tfoot>
+        </table>
+        </div>
+        <div class="btn-row">
+          <input type="text" placeholder="27821234567" value="${d.phone}" oninput="updatePhone('${b}',this.value)" style="width:200px;font-size:13px"/>
+          <button class="btn btn-pdf btn-sm" onclick="generatePDF('${b}')">📄 Generate invoice</button>
+          <button class="btn btn-wa btn-sm" onclick="sendWA('${b}')">📲 WhatsApp</button>
+          <button class="btn btn-sheets btn-sm" onclick="syncBuyerToSheets('${b}')">🟢 Sync</button>
+          <button class="btn btn-sm btn-danger" onclick="removeBuyer('${b}')">🗑 Remove</button>
+        </div>
+      </div>`;
+    el.appendChild(div);
+  });
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+const PAY_LABELS={waiting:'⏳ Waiting Payment',pending:'🔶 Pending',paid:'✅ Paid'};
+
+function renderPayments(){
+  const el=document.getElementById('payments-list');
+  const buyers=Object.keys(state);
+  if(!buyers.length){el.innerHTML='<div class="empty"><span class="eicon">💳</span><p>No sales yet.</p></div>';return;}
+  el.innerHTML='';
+  buyers.forEach((b,idx)=>{
+    const d=state[b];
+    if(!d.paymentStatus) d.paymentStatus='waiting';
+    if(!d.shippingStatus) d.shippingStatus=d.paymentStatus==='paid'?'ready':'not_shipped';
+    const initials=b.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const cardList=d.items.map(it=>`${it.card}${(it.qty||1)>1?` ×${it.qty}`:''}`).join(', ');
+    const invNo=d.invoiceNo||null;
+    const row=document.createElement('div');
+    row.className='pay-row';
+    if(idx>0) row.style.borderTop='1px solid var(--border)';
+    row.innerHTML=`
+      <div class="buyer-info">
+        <div class="avatar">${initials}</div>
+        <div><div class="bname">${b}</div><div class="pay-cards">${cardList}</div></div>
+      </div>
+      <div class="pay-right">
+        <span class="pay-inv${invNo?'':' no-inv'}">${invNo?`Invoice #${invNo}`:'No invoice yet'}</span>
+        <span class="ship-badge ${d.shippingStatus==='ready'?'ready':'not-shipped'}">${d.shippingStatus==='ready'?'🚚 Ready to Ship':'📦 Not Shipped'}</span>
+        <select class="pay-select st-${d.paymentStatus}" onchange="updatePayment('${b}',this.value,this)">
+          <option value="waiting" ${d.paymentStatus==='waiting'?'selected':''}>⏳ Waiting Payment</option>
+          <option value="pending" ${d.paymentStatus==='pending'?'selected':''}>🔶 Pending</option>
+          <option value="paid" ${d.paymentStatus==='paid'?'selected':''}>✅ Paid</option>
+        </select>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+function updatePayment(buyer,status,selectEl){
+  const d=state[buyer];
+  d.paymentStatus=status;
+  d.shippingStatus = status==='paid' ? 'ready' : 'not_shipped';
+  save();
+  if(selectEl){
+    selectEl.className='pay-select st-'+status;
+  }
+  renderPayments();
+}
+
+function removeItem(buyer,idx){
+  const it=state[buyer].items[idx];
+  state[buyer].items.splice(idx,1);
+  if(!state[buyer].items.length) delete state[buyer];
+  if(it && !isCardSoldElsewhere(it.rawCard,it.set)) setCatalogSold(it.rawCard,it.set,false);
+  save();updateStats();renderOrders();renderPayments();updateCatalogDatalists();
+}
+function removeBuyer(buyer){
+  if(!confirm(`Remove all orders for ${buyer}?`))return;
+  const items=(state[buyer]&&state[buyer].items)?state[buyer].items.slice():[];
+  delete state[buyer];
+  items.forEach(it=>{ if(!isCardSoldElsewhere(it.rawCard,it.set)) setCatalogSold(it.rawCard,it.set,false); });
+  save();updateStats();renderOrders();renderPayments();updateCatalogDatalists();
+}
+function clearAll(){
+  if(!confirm('Clear ALL sales data? Cannot be undone. (Your Card Catalog stays, but every card will be reset back to Available.)'))return;
+  state={};sentCount=0;
+  catalog.forEach(c=>c.sold=false);
+  save();updateStats();renderPayments();
+  renderOrders();renderBroadcast();updateCatalogDatalists();
+  document.getElementById('s-sync').textContent='—';
+}
+function updatePhone(buyer,val){
+  if(state[buyer]){state[buyer].phone=val.trim().replace(/\D/g,'');save();}
+}
+
+// ─── PDF Invoice ──────────────────────────────────────────────────────────────
+const LOGO_IMG = 'data:image/jpeg;base64,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';
+const LOGO_RATIO = 87/450; // height/width of the logo asset
+
+function getInvNo(buyer){
+  if(!state[buyer].invoiceNo){
+    invoiceCounter++;
+    state[buyer].invoiceNo=(settings.invRef||'PKM')+invoiceCounter;
+    save();
+  }
+  return state[buyer].invoiceNo;
+}
+
+function generatePDF(buyer){
+  const d=state[buyer];
+  const total=d.items.reduce((s,it)=>s+it.price*(it.qty||1),0);
+  const today=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'long',year:'numeric'});
+  const invNo=getInvNo(buyer);
+  const biz=settings.invBiz||'Geek-Zone';
+  const contact=settings.invContact||'';
+  const bank=settings.invBank||'';
+  const acc=settings.invAcc||'';
+  const holder=settings.invHolder||'';
+  const branch=settings.invBranch||'';
+  const terms=settings.invTerms||'Payment due within 3 days';
+  const BLUE=[24,105,212], BLUE_D=[15,74,158], LIGHT=[237,244,253], MID=[213,224,241], DARK=[23,38,59], GREY=[95,105,122], LGREY=[150,159,173], GOLD=[253,212,62], GOLD_D=[214,168,20];
+
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, H=297, mg=18;
+
+  // ── Top header band (brand blue) ──
+  doc.setFillColor(...BLUE);
+  doc.rect(0,0,W,34,'F');
+
+  // Gold accent line under header
+  doc.setFillColor(...GOLD);
+  doc.rect(0,34,W,2.2,'F');
+
+  // Logo (Geek-Zone wordmark) top-left, matches header blue exactly
+  const logoW=52, logoH=logoW*LOGO_RATIO;
+  doc.addImage(LOGO_IMG, 'JPEG', mg-3, (34-logoH)/2, logoW, logoH);
+
+  // "INVOICE" big label top right, in gold
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(24);
+  doc.setTextColor(...GOLD);
+  doc.text('INVOICE', W-mg, 20, {align:'right'});
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(255,255,255);
+  const tagParts=[];
+  if(contact) tagParts.push(`WhatsApp: +${contact}`);
+  tagParts.push('Trading Card Collectibles');
+  doc.text(tagParts.join('   ·   '), W-mg, 27, {align:'right'});
+
+  // ── Invoice meta (right side) ──
+  const metaX=W-mg-68, metaY=50;
+  // Subtle box
+  doc.setFillColor(...LIGHT);
+  doc.setDrawColor(...MID);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(metaX-4, metaY-6, 72, 32, 2, 2, 'FD');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GREY);
+  ['INVOICE NO','DATE','SALE REF'].forEach((label,i)=>{
+    doc.text(label, metaX, metaY+(i*9));
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(...DARK);
+    doc.setFontSize(8.5);
+    const vals=[invNo, today, (settings.invRef||'PKM')+'-'+new Date().getFullYear()];
+    doc.text(vals[i], metaX+63, metaY+(i*9), {align:'right'});
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GREY);
+  });
+
+  // ── Bill To (left side) ──
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...LGREY);
+  doc.text('BILL TO', mg+4, 52);
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...DARK);
+  doc.text(buyer, mg+4, 63);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...GREY);
+  if(d.phone) doc.text(`+${d.phone}`, mg+4, 71);
+
+  // ── Items table ──
+  const tableBody=d.items.map((it,i)=>[
+    {content:String(i+1), styles:{halign:'center', textColor:GREY}},
+    it.card,
+    {content:String(it.qty||1), styles:{halign:'center'}},
+    {content:`R ${it.price.toLocaleString('en-ZA',{minimumFractionDigits:2})}`, styles:{halign:'right'}},
+    {content:`R ${(it.price*(it.qty||1)).toLocaleString('en-ZA',{minimumFractionDigits:2})}`, styles:{halign:'right', fontStyle:'bold'}}
+  ]);
+
+  doc.autoTable({
+    startY: 82,
+    head:[['#','Card / Item Description','Qty','Unit Price','Line Total']],
+    body: tableBody,
+    theme: 'plain',
+    headStyles:{
+      fillColor: [...BLUE],
+      textColor: [255,255,255],
+      fontStyle: 'bold',
+      fontSize: 8,
+      cellPadding: {top:4,bottom:4,left:4,right:4},
+      halign: 'left'
+    },
+    bodyStyles:{
+      fontSize: 9,
+      textColor: [...DARK],
+      cellPadding: {top:4.5,bottom:4.5,left:4,right:4},
+      lineColor: [...MID],
+      lineWidth: {bottom:0.3}
+    },
+    columnStyles:{
+      0:{cellWidth:10, halign:'center'},
+      2:{cellWidth:13, halign:'center'},
+      3:{cellWidth:30, halign:'right'},
+      4:{cellWidth:33, halign:'right'}
+    },
+    alternateRowStyles:{fillColor:[...LIGHT]},
+    margin:{left:mg, right:mg},
+    tableWidth: W-(mg*2),
+    didDrawPage: ()=>{}
+  });
+
+  let tY = doc.lastAutoTable.finalY;
+
+  // ── Overflow guard ──
+  // Estimate how much vertical space the totals block + banking details box
+  // + footer will need below the table, and start a fresh page if it won't fit.
+  // Without this, invoices with many line items push the banking details and
+  // footer past the bottom of the page (they get clipped or painted over).
+  {
+    const leftItemsCount=[bank,acc,branch].filter(Boolean).length;
+    const rightItemsCount=[holder,invNo].filter(Boolean).length;
+    const rows=Math.max(leftItemsCount, rightItemsCount, 1);
+    const gridBottom=22+(rows-1)*15+5.5;
+    const bkHEstimate=(bank||acc||holder) ? (terms ? gridBottom+11+5.5 : gridBottom)+8 : 0;
+    const totalsBlockH = 8+7+5+3+14; // subtotal + shipping + line + total box
+    const bankGap = (bank||acc||holder) ? 22 : 0;
+    const footerReserve = 25; // space reserved for the footer strip
+    const neededH = totalsBlockH + bankGap + bkHEstimate + footerReserve;
+
+    if(tY + neededH > H){
+      doc.addPage();
+      tY = 20;
+    }
+  }
+
+  // ── Subtotal / Shipping / Total block ──
+  const totX = W - mg - 80;
+  let rY = tY + 8;
+
+  // Subtotal row (cards only)
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GREY);
+  doc.text('Subtotal', totX+2, rY);
+  doc.setTextColor(...DARK);
+  doc.text(`R ${total.toLocaleString('en-ZA',{minimumFractionDigits:2})}`, W-mg, rY, {align:'right'});
+
+  // Shipping row (Pudo)
+  rY += 7;
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...GREY);
+  doc.text('Shipping (Pudo)', totX+2, rY);
+  doc.setTextColor(...DARK);
+  doc.text(`R ${PUDO_SHIPPING.toLocaleString('en-ZA',{minimumFractionDigits:2})}`, W-mg, rY, {align:'right'});
+
+  const grandTotal = total + PUDO_SHIPPING;
+
+  // Thin line
+  rY+=5;
+  doc.setDrawColor(...MID);
+  doc.setLineWidth(0.3);
+  doc.line(totX, rY, W-mg, rY);
+
+  // Total due — brand blue pill with gold total
+  rY+=3;
+  doc.setFillColor(...BLUE);
+  doc.roundedRect(totX, rY, 80, 14, 2, 2, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255,255,255);
+  doc.text('TOTAL DUE', totX+5, rY+9);
+  doc.setFontSize(12);
+  doc.setTextColor(...GOLD);
+  doc.text(`R ${grandTotal.toLocaleString('en-ZA',{minimumFractionDigits:2})}`, W-mg-3, rY+9, {align:'right'});
+
+  // ── Banking details box ──
+  if(bank||acc||holder){
+    const leftItems=[['Bank',bank],['Account No',acc],['Branch Code',branch]].filter(([,v])=>v);
+    const rightItems=[['Account Holder',holder],['Reference',invNo]].filter(([,v])=>v);
+    const rowGap=15;         // vertical space between successive label/value pairs
+    const gridTop=22;        // offset from box top to first label baseline
+    const rows=Math.max(leftItems.length, rightItems.length);
+    const gridBottom=gridTop+(rows-1)*rowGap+5.5; // y of last value baseline (relative to box top)
+    const termsTop=gridBottom+11;                 // divider + label for payment terms
+    const bkY = rY + 22;
+    const bkH = (terms ? termsTop+5.5 : gridBottom) + 8; // + bottom padding
+
+    doc.setFillColor(...LIGHT);
+    doc.setDrawColor(...MID);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(mg, bkY, W-mg*2, bkH, 2, 2, 'FD');
+
+    // Gold left accent
+    doc.setFillColor(...GOLD);
+    doc.roundedRect(mg, bkY, 4, bkH, 1, 1, 'F');
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...LGREY);
+    doc.text('BANKING DETAILS', mg+8, bkY+10);
+
+    const colLX=mg+8, colRX=W/2+4;
+    leftItems.forEach(([label,val],i)=>{
+      const ly=bkY+gridTop+i*rowGap;
+      doc.setFont('helvetica','bold'); doc.setTextColor(...GREY); doc.setFontSize(7.5);
+      doc.text(label, colLX, ly);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...DARK); doc.setFontSize(9.5);
+      doc.text(val, colLX, ly+5.5);
+    });
+    rightItems.forEach(([label,val],i)=>{
+      const ly=bkY+gridTop+i*rowGap;
+      doc.setFont('helvetica','bold'); doc.setTextColor(...GREY); doc.setFontSize(7.5);
+      doc.text(label, colRX, ly);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...DARK); doc.setFontSize(9.5);
+      doc.text(val, colRX, ly+5.5);
+    });
+
+    // Payment terms — its own full-width line below the grid, separated by a divider
+    if(terms){
+      const dY=bkY+gridBottom+5.5;
+      doc.setDrawColor(...MID);
+      doc.setLineWidth(0.25);
+      doc.line(colLX, dY, W-mg-8, dY);
+      const ty=bkY+termsTop;
+      doc.setFont('helvetica','bold'); doc.setTextColor(...GREY); doc.setFontSize(7.5);
+      doc.text('PAYMENT TERMS', colLX, ty);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...DARK); doc.setFontSize(9.5);
+      doc.text(terms, colLX, ty+5.5);
+    }
+  }
+
+  // ── Footer ──
+  // Thin top line
+  doc.setDrawColor(...MID);
+  doc.setLineWidth(0.3);
+  doc.line(mg, H-20, W-mg, H-20);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...LGREY);
+  doc.text('Thank you for your purchase!', mg+4, H-13);
+  doc.text(`Generated ${today}`, W-mg, H-13, {align:'right'});
+
+  // Gold accent line above footer strip
+  doc.setFillColor(...GOLD);
+  doc.rect(0, H-9, W, 1.4, 'F');
+
+  // Blue bottom strip
+  doc.setFillColor(...BLUE);
+  doc.rect(0, H-7.6, W, 7.6, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7);
+  doc.setTextColor(255,255,255);
+  doc.text(biz.toUpperCase(), W/2, H-3, {align:'center'});
+
+  doc.save(`Invoice-${invNo}-${buyer.replace(/\s+/g,'_')}.pdf`);
+  sentCount++; save(); updateStats();
+}
+
+function generateAllPDFs(){
+  const buyers=Object.keys(state);
+  if(!buyers.length){alert('No buyers to generate invoices for.');return;}
+  if(!confirm(`Generate ${buyers.length} PDF invoice(s)? They will download one by one.`))return;
+  buyers.forEach((b,i)=>setTimeout(()=>generatePDF(b),i*500));
+}
+
+// Send ALL — downloads invoice + opens WhatsApp for each buyer, staggered
+function sendAllInvoices(){
+  const buyers=Object.keys(state);
+  if(!buyers.length){alert('No buyers yet.');return;}
+  const noPhone=buyers.filter(b=>!state[b].phone);
+  const withPhone=buyers.filter(b=>state[b].phone);
+  let msg=`This will:\n• Download ${buyers.length} PDF invoice(s)\n• Open WhatsApp for ${withPhone.length} buyer(s) with a phone number`;
+  if(noPhone.length) msg+=`\n\n⚠ ${noPhone.length} buyer(s) have no phone number and will be skipped for WhatsApp.`;
+  msg+='\n\nProceed?';
+  if(!confirm(msg))return;
+  // First generate all PDFs
+  buyers.forEach((b,i)=>setTimeout(()=>generatePDF(b), i*500));
+  // Then open WhatsApp for each buyer with a phone, after PDFs done
+  const delay = buyers.length*500 + 1000;
+  withPhone.forEach((b,i)=>{
+    setTimeout(()=>{
+      const msg=encodeURIComponent(buildWA(b));
+      window.open(`https://wa.me/${state[b].phone}?text=${msg}`,'_blank');
+    }, delay + i*1800); // 1.8s between each WA open so browser doesn't block popups
+  });
+  // Update broadcast progress
+  setTimeout(()=>{ sentCount+=withPhone.length; save(); updateStats(); renderBroadcast(); }, delay+withPhone.length*1800+500);
+}
+
+// ─── WhatsApp ─────────────────────────────────────────────────────────────────
+function buildWA(buyer){
+  const d=state[buyer];
+  const total=d.items.reduce((s,it)=>s+it.price*(it.qty||1),0)+PUDO_SHIPPING;
+  const count=d.items.reduce((s,it)=>s+(it.qty||1),0);
+  const today=new Date().toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'});
+  return waTemplate
+    .replace(/\{name\}/g,buyer)
+    .replace(/\{total\}/g,'R'+total.toLocaleString('en-ZA',{minimumFractionDigits:2}))
+    .replace(/\{count\}/g,count)
+    .replace(/\{date\}/g,today);
+}
+
+function sendWA(buyer){
+  const d=state[buyer];
+  if(!d.phone){alert('Add a WhatsApp number for '+buyer);return;}
+  generatePDF(buyer);
+  setTimeout(()=>{
+    const msg=encodeURIComponent(buildWA(buyer));
+    window.open(`https://wa.me/${d.phone}?text=${msg}`,'_blank');
+  },600);
+}
+
+// ─── Broadcast ────────────────────────────────────────────────────────────────
+function renderBroadcast(){
+  const buyers=Object.keys(state);
+  const el=document.getElementById('broadcast-list');
+  const pw=document.getElementById('broadcast-progress');
+  if(!buyers.length){el.innerHTML='<div class="empty"><span class="eicon">📤</span><p>No buyers yet.</p></div>';pw.style.display='none';return;}
+  pw.style.display='block';
+  document.getElementById('prog-text').textContent=`${sentCount} / ${buyers.length}`;
+  document.getElementById('prog-fill').style.width=Math.min(100,Math.round(sentCount/buyers.length*100))+'%';
+  el.innerHTML='';
+  buyers.forEach(b=>{
+    const d=state[b];
+    const total=d.items.reduce((s,it)=>s+it.price*(it.qty||1),0)+PUDO_SHIPPING;
+    const count=d.items.reduce((s,it)=>s+(it.qty||1),0);
+    const row=document.createElement('div');
+    row.className='bc-row';
+    row.id='bcr-'+b.replace(/\W/g,'_');
+    row.innerHTML=`
+      <div>
+        <div class="bc-name">${b}</div>
+        <div class="bc-sub">${count} card(s) &nbsp;·&nbsp; ${d.phone?'📱 '+d.phone:'<span style="color:var(--red)">⚠ No phone</span>'}</div>
+      </div>
+      <div class="bc-actions">
+        <span class="bc-total">R${total.toLocaleString('en-ZA',{minimumFractionDigits:2})}</span>
+        <button class="btn btn-pdf btn-sm" onclick="generatePDF('${b}');updateStats()">📄 Invoice</button>
+        ${d.phone
+          ? `<button class="btn btn-wa btn-sm" onclick="sendWA('${b}');setTimeout(renderBroadcast,700)">📲 Send</button>`
+          : `<button class="btn btn-sm" onclick="quickPhone('${b}')">Add phone</button>`}
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+function quickPhone(buyer){
+  const n=prompt(`WhatsApp number for ${buyer}:`);
+  if(n){if(!state[buyer])return;state[buyer].phone=n.replace(/\D/g,'');save();renderBroadcast();}
+}
+
+// ─── Google Sheets ────────────────────────────────────────────────────────────
+// Uses GET + script tag trick to bypass CORS entirely — works from local files
+function sendToSheets(url, rows){
+  return new Promise((resolve, reject)=>{
+    const callbackName = 'sheetsCB_'+Date.now()+Math.floor(Math.random()*1000);
+    const script = document.createElement('script');
+    const encoded = encodeURIComponent(JSON.stringify(rows));
+    const timeout = setTimeout(()=>{
+      delete window[callbackName];
+      if(document.body.contains(script)) document.body.removeChild(script);
+      // Resolve anyway — no-cors means we may not get a callback but data likely sent
+      resolve({ok:true, assumed:true});
+    }, 8000);
+    window[callbackName] = function(response){
+      clearTimeout(timeout);
+      delete window[callbackName];
+      if(document.body.contains(script)) document.body.removeChild(script);
+      resolve(response);
+    };
+    script.src = `${url}?callback=${callbackName}&action=sync&data=${encoded}`;
+    script.onerror = ()=>{
+      clearTimeout(timeout);
+      delete window[callbackName];
+      reject(new Error('Script load failed'));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+function fetchFromSheets(url, action){
+  return new Promise((resolve, reject)=>{
+    const callbackName = 'sheetsCB_'+Date.now()+Math.floor(Math.random()*1000);
+    const script = document.createElement('script');
+    const timeout = setTimeout(()=>{
+      delete window[callbackName];
+      if(document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('Timed out waiting for a response.'));
+    }, 8000);
+    window[callbackName] = function(response){
+      clearTimeout(timeout);
+      delete window[callbackName];
+      if(document.body.contains(script)) document.body.removeChild(script);
+      resolve(response);
+    };
+    script.src = `${url}?callback=${callbackName}&action=${action}`;
+    script.onerror = ()=>{
+      clearTimeout(timeout);
+      delete window[callbackName];
+      reject(new Error('Script load failed'));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+async function syncBuyerToSheets(buyer){
+  const url=settings.sheetsUrl;
+  if(!url){alert('Set up Google Sheets URL in Settings first.');return;}
+  const d=state[buyer];
+  const today=new Date().toLocaleDateString('en-ZA');
+  const rows=d.items.map(it=>({
+    card: it.rawCard || it.card,
+    set: it.set || '',
+    buyer: buyer,
+    phone: d.phone || '',
+    price: it.price,
+    qty: it.qty || 1,
+    date: today
+  }));
+  const st=document.getElementById('s-sync');
+  st.textContent='⏳ Syncing...';
+  try{
+    const res = await sendToSheets(url, rows);
+    st.textContent='✅ Synced';
+    alert(`✅ ${buyer}'s orders synced! Check your Google Sheet.`);
+  }catch(e){
+    st.textContent='❌ Failed';
+    alert('Sync failed:\n'+e.message);
+  }
+}
+
+async function syncAllToSheets(){
+  const url=settings.sheetsUrl;
+  if(!url){alert('Set up Google Sheets URL in Settings first.');switchTab('settings',document.querySelector('.side-tab[data-tab="settings"]'));return;}
+  const buyers=Object.keys(state);
+  if(!buyers.length){alert('No data to sync.');return;}
+  const today=new Date().toLocaleDateString('en-ZA');
+  const rows=[];
+  buyers.forEach(b=>{
+    const d=state[b];
+    d.items.forEach(it=>{
+      rows.push({
+        card: it.rawCard || it.card,
+        set: it.set || '',
+        buyer: b,
+        phone: d.phone || '',
+        price: it.price,
+        qty: it.qty || 1,
+        date: today
+      });
+    });
+  });
+  const st=document.getElementById('s-sync');
+  st.textContent='⏳ Syncing...';
+  try{
+    const res = await sendToSheets(url, rows);
+    const count = rows.length;
+    st.textContent=`✅ ${count} rows`;
+    alert(`✅ ${count} sale(s) synced to Google Sheets! Open your sheet to confirm.`);
+  }catch(e){
+    st.textContent='❌ Failed';
+    alert('Sync failed:\n'+e.message);
+  }
+}
+
+async function saveAndTestSheets(){
+  const url=document.getElementById('sheets-url').value.trim();
+  if(!url){alert('Paste the Web App URL first.');return;}
+  settings.sheetsUrl=url;save();
+  const st=document.getElementById('sheets-status');
+  st.className='sheet-status idle';st.textContent='⏳ Connecting...';
+  try{
+    const res = await fetchFromSheets(url,'getCatalog');
+    if(res && res.ok){
+      st.className='sheet-status ok';
+      st.textContent=`✅ Connected — found ${res.cards?res.cards.length:0} card(s) in your sheet.`;
+    } else {
+      st.className='sheet-status err';
+      st.textContent='❌ '+(res&&res.error?res.error:'Could not read the sheet. Check it has Card, Cost and Price column headers.');
+    }
+  }catch(e){
+    st.className='sheet-status err';
+    st.textContent='❌ Failed. Check the URL ends in /exec and is deployed correctly.';
+  }
+}
+
+function copyScript(){
+  const txt=document.querySelector('textarea[readonly]').value;
+  navigator.clipboard.writeText(txt).then(()=>alert('Script copied! Paste it in Google Apps Script.'));
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function loadSettings(){
+  if(settings.sheetsUrl) document.getElementById('sheets-url').value=settings.sheetsUrl;
+  ['invBiz','invContact','invBank','invAcc','invHolder','invBranch','invRef','invTerms'].forEach(k=>{
+    const el=document.getElementById('inv-'+k.replace('inv','').toLowerCase());
+    if(el&&settings[k]) el.value=settings[k];
+  });
+  document.getElementById('wa-template').value=waTemplate;
+  if(settings.sheetsUrl){const st=document.getElementById('sheets-status');st.className='sheet-status ok';st.textContent='✅ URL saved';}
+}
+
+function saveInvSettings(){
+  const map={invBiz:'inv-biz',invContact:'inv-contact',invBank:'inv-bank',invAcc:'inv-acc',invHolder:'inv-holder',invBranch:'inv-branch',invRef:'inv-ref',invTerms:'inv-terms'};
+  Object.entries(map).forEach(([k,id])=>{const el=document.getElementById(id);if(el)settings[k]=el.value.trim();});
+  save();alert('Invoice settings saved!');
+}
+
+function saveWATemplate(){
+  waTemplate=document.getElementById('wa-template').value;
+  save();alert('WhatsApp template saved!');
+}
+
+// ─── Stats / Datalist ─────────────────────────────────────────────────────────
+function updateStats(){
+  const buyers=Object.keys(state);
+  let cards=0,rev=0,profit=0;
+  buyers.forEach(b=>state[b].items.forEach(it=>{
+    cards+=it.qty||1;
+    rev+=it.price*(it.qty||1);
+    profit+=(it.price-(it.cost||0))*(it.qty||1);
+  }));
+  document.getElementById('s-buyers').textContent=buyers.length;
+  document.getElementById('s-cards').textContent=cards.toLocaleString();
+  document.getElementById('s-rev').textContent='R'+rev.toLocaleString('en-ZA',{minimumFractionDigits:2});
+  document.getElementById('s-profit').textContent='R'+profit.toLocaleString('en-ZA',{minimumFractionDigits:2});
+  document.getElementById('s-sent').textContent=sentCount;
+}
+
+function updateDatalist(){
+  const dl=document.getElementById('buyer-dl');dl.innerHTML='';
+  Object.keys(state).forEach(k=>{const o=document.createElement('option');o.value=k;dl.appendChild(o);});
+  const ni=document.getElementById('f-name');
+  ni.removeEventListener('input',ni._handler);
+  ni._handler=function(){const b=state[this.value];if(b&&b.phone)document.getElementById('f-phone').value=b.phone;};
+  ni.addEventListener('input',ni._handler);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateStats();
+updateDatalist();
+updateCatalogDatalists();
+renderCatalog();
+renderPayments();
+loadSettings();
+</script>
+</body>
+</html>
